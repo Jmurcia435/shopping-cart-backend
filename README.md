@@ -1,139 +1,41 @@
-# Backend API Setup Guide
+# 🚀 Redireccionamiento a nuestros otros repositorios:
+- 🗄️ **Base de datos**  
+  👉 [Base de datos](https://github.com/Jmurcia435/shopping-cart-bd/tree/dev)
 
-## Quick Start
+- 💻 **Frontend (Interfaz POS)**  
+  👉 [Frontend](https://github.com/Jmurcia435/shopping-cart-frontend/tree/dev)
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+- ⚙️ **Backend (Servicios distribuidos)**  
+  👉 [Backend](https://github.com/Jmurcia435/shopping-cart-backend/tree/dev)
 
-2. **Configure environment:**
-   ```bash
-   cp .env.example .env
-   ```
+---
 
-3. **Start backend:**
-   ```bash
-   npm start
-   ```
+# ⚙️ Backend API
 
-Backend runs on `http://localhost:5000`
+API backend desarrollada con Node.js y Express para gestionar productos, categorías y órdenes del sistema de carrito de compras, con integración a PostgreSQL.
 
-## Environment Variables
+## 📖 Descripción del Proyecto
 
-Create a `.env` file with:
+El Backend API se encarga de la lógica de negocio y la comunicación con la base de datos.
 
-```env
-# Database connection
-DATABASE_URL=postgresql://shopping_cart_user:shopping_cart_password@localhost:5433/shopping_cart
+Proporciona endpoints para:
 
-# Server
-PORT=5000
-NODE_ENV=development
+📦 Gestión de productos
+🗂️ Gestión de categorías
+🧾 Procesamiento de órdenes (checkout)
+🔗 Integración con el frontend mediante API REST
 
-# Frontend URL (for CORS)
-CORS_ORIGIN=http://localhost:3000
-```
+Está diseñado para ser escalable y fácil de configurar en entornos de desarrollo.
 
-## API Endpoints
+---
 
-### Health Check
-```
-GET /api/health
-```
+# 🗄️ Esquema de Base de Datos
 
-### Get All Products
-```
-GET /api/products
+El backend se conecta a las siguientes tablas:
 
-Response:
-[
-  {
-    "id": "...",
-    "name": "Product Name",
-    "description": "...",
-    "price": "29.99",
-    "category": "Category Name",
-    "stock": 100
-  }
-]
-```
-
-### Get Categories
-```
-GET /api/categories
-
-Response:
-[
-  {
-    "id": "...",
-    "name": "Category Name",
-    "description": "..."
-  }
-]
-```
-
-### Checkout (Save Order)
-```
-POST /api/checkout
-
-Body:
-{
-  "userId": "guest-user",
-  "items": [
-    {
-      "productId": "uuid",
-      "quantity": 2
-    },
-    {
-      "productId": "uuid",
-      "quantity": 1
-    }
-  ]
-}
-
-Response:
-{
-  "success": true,
-  "billId": "uuid",
-  "total": "159.97",
-  "message": "Checkout successful"
-}
-```
-
-## Database Schema Used
-
-The backend connects to these tables:
-
-- `inventory.category` - Product categories
-- `inventory.product` - Product catalog
-- `inventory.inventory` - Stock quantities
-- `bill.bill` - Orders/bills (created on checkout)
-- `bill.bill_item` - Order line items (created on checkout)
-- `security.user` - User table (for user_id foreign key)
-
-## Dependencies
-
-- **express** - Web framework
-- **pg** - PostgreSQL client
-- **cors** - Cross-origin resource sharing
-- **dotenv** - Environment variables
-- **uuid** - UUID utilities
-
-## Development
-
-Run with hot-reload using nodemon:
-```bash
-npm run dev
-```
-
-## Troubleshooting
-
-### Connection Error
-- Verify PostgreSQL is running on port 5433
-- Check database URL in .env
-- Test connection: `psql -U shopping_cart_user -d shopping_cart -h localhost -p 5433`
-
-### CORS Error
-- Frontend and backend on same machine? Check CORS_ORIGIN in .env
-- Should be `http://localhost:3000` for local dev
+📁 inventory.category – Categorías de productos
+📦 inventory.product – Catálogo de productos
+📊 inventory.inventory – Cantidades en stock
+🧾 bill.bill – Órdenes generadas en checkout
+📄 bill.bill_item – Detalle de productos por orden
+👤 security.user – Tabla de usuarios
