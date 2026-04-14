@@ -2,10 +2,10 @@
 - 🗄️ **Base de datos**  
   👉 [Base de datos](https://github.com/Jmurcia435/shopping-cart-bd/tree/dev)
 
-- 💻 **Frontend (Interfaz POS)**  
+- 💻 **Frontend**  
   👉 [Frontend](https://github.com/Jmurcia435/shopping-cart-frontend/tree/dev)
 
-- ⚙️ **Backend (Servicios distribuidos)**  
+- ⚙️ **Backend**  
   👉 [Backend](https://github.com/Jmurcia435/shopping-cart-backend/tree/dev)
 
 ---
