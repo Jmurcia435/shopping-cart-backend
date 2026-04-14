@@ -20,10 +20,10 @@ El Backend API se encarga de la lógica de negocio y la comunicación con la bas
 
 Proporciona endpoints para:
 
-📦 Gestión de productos
-🗂️ Gestión de categorías
-🧾 Procesamiento de órdenes (checkout)
-🔗 Integración con el frontend mediante API REST
+- 📦 Gestión de productos
+- 🗂️ Gestión de categorías
+- 🧾 Procesamiento de órdenes (checkout)
+- 🔗 Integración con el frontend mediante API REST
 
 Está diseñado para ser escalable y fácil de configurar en entornos de desarrollo.
 
@@ -33,9 +33,9 @@ Está diseñado para ser escalable y fácil de configurar en entornos de desarro
 
 El backend se conecta a las siguientes tablas:
 
-📁 inventory.category – Categorías de productos
-📦 inventory.product – Catálogo de productos
-📊 inventory.inventory – Cantidades en stock
-🧾 bill.bill – Órdenes generadas en checkout
-📄 bill.bill_item – Detalle de productos por orden
-👤 security.user – Tabla de usuarios
+- 📁 inventory.category – Categorías de productos
+- 📦 inventory.product – Catálogo de productos
+- 📊 inventory.inventory – Cantidades en stock
+- 🧾 bill.bill – Órdenes generadas en checkout
+- 📄 bill.bill_item – Detalle de productos por orden
+- 👤 security.user – Tabla de usuarios
