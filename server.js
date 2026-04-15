@@ -5,9 +5,6 @@ const { Pool } = require('pg');
 
 const app = express();
 
-// Fixed UUID for guest user
-const GUEST_USER_ID = '00000000-0000-0000-0000-000000000001';
-
 // Middleware
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
@@ -24,11 +21,91 @@ pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);
 });
 
+async function resolveCheckoutUserId(client, requestedUserId) {
+  if (requestedUserId) {
+    const userResult = await client.query(
+      `
+        SELECT id
+        FROM security."user"
+        WHERE id = $1 AND state = 'ACTIVE'
+      `,
+      [requestedUserId]
+    );
+
+    if (userResult.rows.length === 0) {
+      throw new Error('Provided userId was not found or is inactive');
+    }
+
+    return userResult.rows[0].id;
+  }
+
+  const guestIdentity = {
+    username: 'guest_checkout',
+    email: 'guest_checkout@local'
+  };
+
+  const existingGuest = await client.query(
+    `
+      SELECT id
+      FROM security."user"
+      WHERE username = $1 OR email = $2
+      LIMIT 1
+    `,
+    [guestIdentity.username, guestIdentity.email]
+  );
+
+  if (existingGuest.rows.length > 0) {
+    return existingGuest.rows[0].id;
+  }
+
+  let roleId;
+  const roleResult = await client.query(
+    `
+      SELECT id
+      FROM security.role
+      WHERE state = 'ACTIVE'
+      ORDER BY created_at ASC
+      LIMIT 1
+    `
+  );
+
+  if (roleResult.rows.length > 0) {
+    roleId = roleResult.rows[0].id;
+  } else {
+    const createdRole = await client.query(
+      `
+        INSERT INTO security.role (name, description, created_by)
+        VALUES ($1, $2, $3)
+        RETURNING id
+      `,
+      ['Guest', 'Role used for anonymous checkout', 'shopping_cart_app']
+    );
+    roleId = createdRole.rows[0].id;
+  }
+
+  const createdGuest = await client.query(
+    `
+      INSERT INTO security."user" (username, email, password, role_id, created_by)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id
+    `,
+    [
+      guestIdentity.username,
+      guestIdentity.email,
+      'guest_checkout_not_for_login',
+      roleId,
+      'shopping_cart_app'
+    ]
+  );
+
+  return createdGuest.rows[0].id;
+}
+
 // Routes
 app.get('/api/products', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT p.id, p.name, p.description, p.price, c.name as category, i.quantity as stock
+      SELECT p.id, p.name, p.description, p.price, c.name as category, COALESCE(i.quantity, 0) as stock
       FROM inventory.product p
       LEFT JOIN inventory.category c ON p.category_id = c.id
       LEFT JOIN inventory.inventory i ON p.id = i.product_id
@@ -70,20 +147,55 @@ app.post('/api/checkout', async (req, res) => {
     try {
       await client.query('BEGIN');
 
-      // Generate UUID for guest user if not provided
-      const finalUserId = userId || GUEST_USER_ID;
+      // Resolve a valid checkout user to satisfy bill.user_id FK.
+      const finalUserId = await resolveCheckoutUserId(client, userId);
 
-      // Calculate total
+      // Validate products, calculate total, and reserve stock
       let total = 0;
+      const resolvedItems = [];
       for (const item of items) {
-        const result = await client.query(
-          'SELECT price FROM inventory.product WHERE id = $1',
+        if (!item.productId || !Number.isInteger(item.quantity) || item.quantity <= 0) {
+          throw new Error('Each cart item must include a valid productId and quantity');
+        }
+
+        const priceResult = await client.query(
+          `
+            SELECT price
+            FROM inventory.product
+            WHERE id = $1 AND state = 'ACTIVE'
+          `,
           [item.productId]
         );
-        if (result.rows.length === 0) {
+        if (priceResult.rows.length === 0) {
           throw new Error(`Product ${item.productId} not found`);
         }
-        total += result.rows[0].price * item.quantity;
+
+        const stockResult = await client.query(
+          `
+            SELECT quantity
+            FROM inventory.inventory
+            WHERE product_id = $1
+            FOR UPDATE
+          `,
+          [item.productId]
+        );
+
+        if (stockResult.rows.length === 0) {
+          throw new Error(`Inventory record for product ${item.productId} not found`);
+        }
+
+        const unitPrice = priceResult.rows[0].price;
+        const stock = stockResult.rows[0].quantity;
+        if (stock < item.quantity) {
+          throw new Error(`Insufficient stock for product ${item.productId}`);
+        }
+
+        total += unitPrice * item.quantity;
+        resolvedItems.push({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice
+        });
       }
 
       // Create bill
@@ -94,17 +206,23 @@ app.post('/api/checkout', async (req, res) => {
       const billId = billResult.rows[0].id;
 
       // Add bill items
-      for (const item of items) {
-        const productResult = await client.query(
-          'SELECT price FROM inventory.product WHERE id = $1',
-          [item.productId]
-        );
-        const unitPrice = productResult.rows[0].price;
-        const itemTotal = unitPrice * item.quantity;
+      for (const item of resolvedItems) {
+        const itemTotal = item.unitPrice * item.quantity;
 
         await client.query(
           'INSERT INTO bill.bill_item (bill_id, product_id, quantity, unit_price, total, created_by) VALUES ($1, $2, $3, $4, $5, $6)',
-          [billId, item.productId, item.quantity, unitPrice, itemTotal, 'shopping_cart_app']
+          [billId, item.productId, item.quantity, item.unitPrice, itemTotal, 'shopping_cart_app']
+        );
+
+        await client.query(
+          `
+            UPDATE inventory.inventory
+            SET quantity = quantity - $2,
+                updated_at = NOW(),
+                updated_by = $3
+            WHERE product_id = $1
+          `,
+          [item.productId, item.quantity, 'shopping_cart_app']
         );
       }
 
